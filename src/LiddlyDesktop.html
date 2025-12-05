@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>LiddlyDesktop - Launcher</title>
+  <link rel="shortcut icon" type="image/x-icon" href="favicon.ico">
+  <link rel="manifest" href="manifest.json">
+    
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Vollkorn:ital,wght@0,400;0,600;1,400&display=swap');
+
+    :root {
+      /* Dark Blue & Grey Theme */
+      --bg-color: #0f172a;        /* Deep Slate Blue */
+      --text-color: #e2e8f0;      /* Light Grey */
+      --card-bg: #1e293b;         /* Lighter Slate */
+      --button-bg: #334155;       /* Blue-Grey Button */
+      --button-hover: #475569;    /* Hover State */
+      --border-color: #475569;    /* Border Blue-Grey */
+      --accent-color: #38bdf8;    /* Sky Blue Accent */
+      --accent-text: #0f172a;     /* Dark Text for Accent */
+      --delete-color: #ef4444;    /* Red for trash */
+    }
+
+    body {
+      font-family: 'Vollkorn', serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      margin: 0;
+      padding: 40px;
+      line-height: 1.6;
+      display: flex;
+      justify-content: center;
+    }
+
+    /* Container to center the launcher interface */
+    .container {
+      max-width: 600px;
+      width: 100%;
+    }
+
+    h1 {
+      font-weight: 600;
+      font-size: 2.5rem;
+      margin-top: 0;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      display: flex;
+      align-items: center;
+    }
+
+    h1 img {
+      width: 125px;     
+      height: 125px;    
+      object-fit: contain;
+      margin-right: 20px; 
+      border-radius: 8px; 
+      background-color: rgba(255,255,255,0.05); 
+    }
+
+    h3 {
+      font-weight: 600;
+      font-size: 1.2rem;
+      color: #94a3b8; /* Muted blue-grey */
+      margin-bottom: 0.5rem;
+      margin-top: 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .section {
+      background-color: var(--card-bg);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      padding: 20px;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+
+    button {
+      background-color: var(--button-bg);
+      color: var(--text-color);
+      font-family: 'Vollkorn', serif;
+      font-size: 1rem;
+      border: 1px solid var(--border-color);
+      border-radius: 6px;
+      padding: 12px 20px;
+      cursor: pointer;
+      width: 100%;
+      text-align: center; 
+      transition: background-color 0.2s, transform 0.1s;
+      margin-top: 5px;
+    }
+
+    button:hover {
+      background-color: var(--button-hover);
+      border-color: #64748b;
+    }
+
+    button:active {
+      transform: scale(0.99);
+    }
+
+    /* Row style for Remote/Recent items with delete buttons */
+    .item-row {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .item-row button.main-btn {
+      flex-grow: 1;
+      margin-top: 0;
+      text-align: left;
+      font-family: monospace; /* Monospace helps urls look better truncated */
+      font-size: 0.9rem;
+    }
+
+    .item-row button.del-btn {
+      width: auto;
+      flex-grow: 0;
+      margin-top: 0;
+      padding: 12px 15px;
+      color: #fca5a5;
+      border-color: #7f1d1d;
+      background-color: rgba(127, 29, 29, 0.2);
+    }
+    .item-row button.del-btn:hover {
+      background-color: var(--delete-color);
+      color: white;
+    }
+
+    /* Small Plus Button for headers */
+    .icon-btn {
+      background: none;
+      border: 1px solid var(--border-color);
+      color: var(--accent-color);
+      width: auto;
+      padding: 2px 10px;
+      font-size: 1.2rem;
+      margin-top: 0;
+      line-height: 1;
+    }
+    .icon-btn:hover {
+      background-color: rgba(56, 189, 248, 0.1);
+    }
+
+    ul {
+      list-style-type: none;
+      padding-left: 0;
+      margin: 0;
+    }
+
+    #support-message {
+      color: #f87171;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+    }
+
+    .clear-btn {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      text-align: center;
+      background: transparent;
+      border: 1px dashed var(--border-color);
+      opacity: 0.7;
+    }
+    .clear-btn:hover {
+      background-color: rgba(255,255,255,0.05);
+      opacity: 1;
+    }
+  </style>
+
+  <script type="module">
+    /* From https://github.com/jakearchibald/idb-keyval */
+    let idbKeyval = (function (exports) {
+      'use strict';
+      class Store {
+          constructor(dbName = 'keyval-store', storeName = 'keyval') {
+              this.storeName = storeName;
+              this._dbp = new Promise((resolve, reject) => {
+                  const openreq = indexedDB.open(dbName, 1);
+                  openreq.onerror = () => reject(openreq.error);
+                  openreq.onsuccess = () => resolve(openreq.result);
+                  openreq.onupgradeneeded = () => {
+                      openreq.result.createObjectStore(storeName);
+                  };
+              });
+          }
+          _withIDBStore(type, callback) {
+              return this._dbp.then(db => new Promise((resolve, reject) => {
+                  const transaction = db.transaction(this.storeName, type);
+                  transaction.oncomplete = () => resolve();
+                  transaction.onabort = transaction.onerror = () => reject(transaction.error);
+                  callback(transaction.objectStore(this.storeName));
+              }));
+          }
+      }
+      let store;
+      function getDefaultStore() {
+          if (!store) store = new Store();
+          return store;
+      }
+      function get(key, store = getDefaultStore()) {
+          let req;
+          return store._withIDBStore('readonly', store => {
+              req = store.get(key);
+          }).then(() => req.result);
+      }
+      function set(key, value, store = getDefaultStore()) {
+          return store._withIDBStore('readwrite', store => {
+              store.put(value, key);
+          });
+      }
+      function del(key, store = getDefaultStore()) {
+          return store._withIDBStore('readwrite', store => {
+              store.delete(key);
+          });
+      }
+      function clear(store = getDefaultStore()) {
+          return store._withIDBStore('readwrite', store => {
+              store.clear();
+          });
+      }
+      function keys(store = getDefaultStore()) {
+          const keys = [];
+          return store._withIDBStore('readonly', store => {
+              (store.openKeyCursor || store.openCursor).call(store).onsuccess = function () {
+                  if (!this.result) return;
+                  keys.push(this.result.key);
+                  this.result.continue();
+              };
+          }).then(() => keys);
+      }
+      exports.Store = Store;
+      exports.get = get;
+      exports.set = set;
+      exports.del = del;
+      exports.clear = clear;
+      exports.keys = keys;
+      return exports;
+    }({}));
+
+    /* Saver Logic */
+    function createTwCustomSaver(fileHandle) {
+      return function(text, method, callback) {
+        fileHandle.createWritable()
+          .then(writable => {
+            writable.write(text);
+            return writable;
+          }).then(writable => {
+            writable.close();
+            callback(null);
+          }).catch(error => {
+            callback(error);
+          });
+        return true;
+      }
+    }
+
+    function setTwCustomSaver(fileHandle) {
+      window.$tw = {customSaver: {save: createTwCustomSaver(fileHandle)}};
+    }
+
+    function setTwCustomSaveAsSaver() {
+      let writeTw;
+      let save = function(text, method, callback) {
+        if (writeTw) {
+          writeTw(text, method, callback);
+        } else {
+          const saveOptions = {
+            suggestedName: 'index.html',
+            types: [{
+                description: 'HTML File',
+                accept: {'text/html': ['.html', '.htm']},
+            }],
+          };
+            
+          window.showSaveFilePicker(saveOptions)
+            .then(fileHandle => {
+              writeTw = createTwCustomSaver(fileHandle);
+              writeTw(text, method, callback);
+              twFileManager.addRecent(fileHandle);
+            });
+        }
+        return true;
+      }
+      window.$tw = {customSaver: {save: save}};
+    }
+
+    const twFileManager = {
+      openFile: async function(fileHandle) {
+        if (fileHandle) {
+          const options = {mode: 'read'};
+          if ((await fileHandle.queryPermission(options)) !== 'granted') {
+            await fileHandle.requestPermission(options);
+          }
+        } else {
+          const openOptions = {
+             types: [{
+                description: 'HTML Files',
+                accept: {'text/html': ['.html', '.htm']},
+            }]
+          };
+          [fileHandle] = await window.showOpenFilePicker(openOptions);
+        }
+        const file = await fileHandle.getFile();
+        const contents = await file.text();
+        setTwCustomSaver(fileHandle);
+        return {fileHandle, contents};
+      },
+
+      openFromUrl: async function(url) {
+        const contents = await fetch(url).then(res => res.text());
+        setTwCustomSaveAsSaver();
+        return {contents};
+      },
+
+      addRecent: async function(fileHandle) {
+        let recentFiles = (await idbKeyval.get('recentFiles')) || [];
+        if (!fileHandle.isSameEntry) return recentFiles;
+
+        const inList = await Promise.all(recentFiles.map((f) => fileHandle.isSameEntry(f)));
+        if (inList.some((val) => val)) return recentFiles;
+
+        recentFiles.unshift(fileHandle);
+        if (recentFiles.length > 5) recentFiles.pop();
+        idbKeyval.set('recentFiles', recentFiles);
+        return recentFiles;
+      },
+
+      getRecent: async function () {
+        return (await idbKeyval.get('recentFiles')) || [];
+      },
+
+      clearRecent: async function () {
+        await idbKeyval.del('recentFiles');
+      },
+      
+      /* --- REMOTE WIKI EDITION LOGIC --- */
+      addRemoteEdition: async function() {
+        const url = prompt("Enter the URL of the Remote Wiki edition (e.g. https://www.wiki.com):");
+        if (!url) return;
+        
+        // UPDATED: No name prompt. Name = URL.
+        let name = url;
+
+        let remotes = (await idbKeyval.get('remoteEditions')) || [];
+        remotes.push({id: Date.now(), name: name, url: url});
+        
+        await idbKeyval.set('remoteEditions', remotes);
+        displayRemoteEditions();
+      },
+
+      getRemoteEditions: async function() {
+        return (await idbKeyval.get('remoteEditions')) || [];
+      },
+
+      deleteRemoteEdition: async function(id) {
+        let remotes = (await idbKeyval.get('remoteEditions')) || [];
+        remotes = remotes.filter(r => r.id !== id);
+        await idbKeyval.set('remoteEditions', remotes);
+        displayRemoteEditions();
+      }
+    }
+
+    /* URL Hash checks */
+    if (window.location.hash.search("norecent") >= 0) {
+      const noop = async () => {return []};
+      twFileManager.addRecent = noop;
+      twFileManager.getRecent = noop;
+    }
+      
+    /* Browser Support Check */
+    if (!window.showOpenFilePicker) {
+      twFileManager.openFile = async () => {
+        window.alert("This browser doesn't support opening files locally.");
+        return {}
+      }
+    }
+    if (!window.showSaveFilePicker) {
+      setTwCustomSaveAsSaver = () => {}
+    }
+
+    /* Page Replacement Logic */
+    function replacePageContents(contents) {
+      if (contents) {
+        document.open();
+        document.write(contents);
+        document.close();
+      }
+    }
+    window.openFile = async function (fileHandle) {
+      const file = await twFileManager.openFile(fileHandle);
+      replacePageContents(file.contents);
+      if (file.fileHandle) {
+        twFileManager.addRecent(file.fileHandle);
+      }
+      return file;
+    }
+    window.openFromUrl = async function (url) {
+      try {
+          const file = await twFileManager.openFromUrl(url);
+          replacePageContents(file.contents);
+          return file;
+      } catch (e) {
+          alert("Could not load Wiki from URL. Check CORS or network status.");
+      }
+    }
+    
+    window.addNewRemote = twFileManager.addRemoteEdition;
+    window.deleteRemote = twFileManager.deleteRemoteEdition;
+
+    function displayBrowserSupportMessage() {
+      const elem = document.getElementById("support-message");
+      if (elem && !window.showSaveFilePicker) {
+         elem.innerHTML = "<b>Note: Your current browser does not support the File System Access API required for local saving.</b>";
+      }
+    }
+
+    function clearRecent() {
+      twFileManager.clearRecent().then(() => {
+        displayRecentFiles(); 
+      });
+    }
+
+    function displayRecentFiles() {
+      const elem = document.getElementById("recent-files");
+      if (elem) {
+        elem.innerHTML = ""; 
+        twFileManager.getRecent().
+          then(recentFiles => {
+            if (recentFiles && recentFiles.length > 0) {
+              const sectionDiv = document.createElement('div');
+              sectionDiv.className = 'section';
+
+              const title = document.createElement('h3');
+              title.innerText = 'Recent Local Wikis';
+              sectionDiv.appendChild(title);
+
+              const list = document.createElement('ul');
+              for (const recent of recentFiles) {
+                const li = document.createElement('li');
+                li.className = "item-row";
+                
+                const button = Object.assign(document.createElement('button'), {
+                    type: 'button',
+                    onclick: openFile.bind(null, recent),
+                    innerText: recent.name,
+                    className: 'main-btn'
+                });
+                
+                li.appendChild(button);
+                list.appendChild(li);
+              }
+              sectionDiv.appendChild(list);
+
+              const clearButton = Object.assign(document.createElement('button'), {
+                type: 'button',
+                onclick: clearRecent,
+                innerText: 'Clear Recent List',
+                className: 'clear-btn'
+              });
+              sectionDiv.appendChild(clearButton);
+                
+              elem.appendChild(sectionDiv);
+            }
+          })
+      }
+    }
+
+    // Helper: Middle Truncation for URLs
+    function middleTruncate(str, maxLen) {
+        if (!str) return "";
+        if (str.length <= maxLen) return str;
+        
+        const separator = '...';
+        const sepLen = separator.length;
+        const charsToShow = maxLen - sepLen;
+        const frontChars = Math.ceil(charsToShow / 2);
+        const backChars = Math.floor(charsToShow / 2);
+        
+        return str.substr(0, frontChars) + separator + str.substr(str.length - backChars);
+    }
+
+    function displayRemoteEditions() {
+        const elem = document.getElementById("remote-editions");
+        if(elem) {
+            elem.innerHTML = ""; 
+            twFileManager.getRemoteEditions().then(remotes => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'section';
+
+                const titleHeader = document.createElement('h3');
+                titleHeader.innerText = "Start with Remote Edition";
+                
+                const addBtn = document.createElement('button');
+                addBtn.innerHTML = "+";
+                addBtn.className = "icon-btn";
+                addBtn.onclick = window.addNewRemote;
+                addBtn.title = "Add new remote location";
+                
+                titleHeader.appendChild(addBtn);
+                sectionDiv.appendChild(titleHeader);
+
+                if (remotes.length > 0) {
+                    const list = document.createElement('ul');
+                    for (const remote of remotes) {
+                        const li = document.createElement('li');
+                        li.className = "item-row";
+
+                        // Apply Truncation here (max 30 chars)
+                        const displayName = middleTruncate(remote.url, 30);
+
+                        const btn = document.createElement('button');
+                        btn.type = "button";
+                        btn.className = "main-btn";
+                        btn.innerText = displayName;
+                        btn.title = remote.url; // Hover to see full URL
+                        btn.onclick = () => window.openFromUrl(remote.url);
+
+                        const delBtn = document.createElement('button');
+                        delBtn.type = "button";
+                        delBtn.className = "del-btn";
+                        delBtn.innerHTML = "&#128465;"; 
+                        delBtn.onclick = () => window.deleteRemote(remote.id);
+
+                        li.appendChild(btn);
+                        li.appendChild(delBtn);
+                        list.appendChild(li);
+                    }
+                    sectionDiv.appendChild(list);
+                } else {
+                    const p = document.createElement('p');
+                    p.style.opacity = "0.6";
+                    p.style.fontStyle = "italic";
+                    p.innerText = "No remote editions saved. Click + to add.";
+                    sectionDiv.appendChild(p);
+                }
+                elem.appendChild(sectionDiv);
+            });
+        }
+    }
+
+    window.onload = () => {
+      displayBrowserSupportMessage();
+      displayRecentFiles();
+      displayRemoteEditions();
+    }
+  </script>
+  <script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('./offline-service-worker.js').catch(function(error) {
+      console.error('Service Worker registration failed:', error);
+    });
+  }
+  </script>
+</head>
+<body>
+    <div class="container">
+      <h1><img src="app-icon.png" alt="LiddlyDesktop Icon"> LiddlyDesktop</h1>
+        
+      <div id="support-message"></div>
+
+      <div class="section">
+        <h3>Start Blank Wiki</h3>
+        <button type="button" onclick="openFromUrl('https://tiddlywiki.com/empty.html')">Use "Empty"</button>
+      </div>
+
+      <div id="remote-editions"></div>
+
+      <div class="section">
+        <h3>Existing File</h3>
+        <button type="button" onclick="openFile()">Sideload a Wiki...</button>
+      </div>
+
+      <div id="recent-files"></div>
+
+    </div>
+</body>
+</html>
