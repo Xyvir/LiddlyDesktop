@@ -37,35 +37,20 @@ jobs:
             echo "Icon file 'src/app-icon.png' not found, skipping icon generation."
           fi
 
-      - name: Build Offline Executable
+      - name: Build Executable
         run: npm run tauri build
 
-      - name: Rename Offline Artifact
+      - name: Rename Artifact
         run: |
-          find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop-Offline.AppImage \;
-          echo "Created LiddlyDesktop-Offline.AppImage"
-
-      - name: Switch Config to Online Mode
-        run: |
-          config_path="src-tauri/tauri.conf.json"
-          tmp_config=$(mktemp)
-          jq '.tauri.windows[0].url = "https://lithic.uk"' "$config_path" > "$tmp_config" && mv "$tmp_config" "$config_path"
-          
-      - name: Build Online Executable
-        run: npm run tauri build
-
-      - name: Rename Online Artifact
-        run: |
-          find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop-Online.AppImage \;
-          echo "Created LiddlyDesktop-Online.AppImage"
+          find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop.AppImage \;
+          echo "Created LiddlyDesktop.AppImage"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: |
-            LiddlyDesktop-Offline.AppImage
-            LiddlyDesktop-Online.AppImage
+            LiddlyDesktop.AppImage
 
   release:
     needs: build
@@ -88,5 +73,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            LiddlyDesktop-Offline.AppImage
-            LiddlyDesktop-Online.AppImage
+            LiddlyDesktop.AppImage

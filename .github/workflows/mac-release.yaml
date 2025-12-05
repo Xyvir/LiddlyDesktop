@@ -32,39 +32,22 @@ jobs:
             echo "Icon file 'src/app-icon.png' not found, skipping icon generation."
           fi
 
-      - name: Build Offline Executable
+      - name: Build Executable
         run: npm run tauri build -- --bundles "app,dmg"
 
-      - name: Rename Offline Artifact
+      - name: Rename Artifact
         run: |
-          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Offline.app
-          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Offline.dmg
-          echo "Created LiddlyDesktop-Offline.app and LiddlyDesktop-Offline.dmg"
-
-      - name: Switch Config to Online Mode
-        run: |
-          config_path="src-tauri/tauri.conf.json"
-          tmp_config=$(mktemp)
-          jq '.tauri.windows[0].url = "https://lithic.uk"' "$config_path" > "$tmp_config" && mv "$tmp_config" "$config_path"
-          
-      - name: Build Online Executable
-        run: npm run tauri build -- --bundles "app,dmg"
-
-      - name: Rename Online Artifact
-        run: |
-          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Online.app
-          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Online.dmg
-          echo "Created LiddlyDesktop-Online.app and LiddlyDesktop-Online.dmg"
+          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop.app
+          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop.dmg
+          echo "Created LiddlyDesktop.app and LiddlyDesktop.dmg"
 
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: |
-            LiddlyDesktop-Offline.app
-            LiddlyDesktop-Offline.dmg
-            LiddlyDesktop-Online.app
-            LiddlyDesktop-Online.dmg
+            LiddlyDesktop.app
+            LiddlyDesktop.dmg
 
   release:
     needs: build
@@ -87,7 +70,5 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            LiddlyDesktop-Offline.app
-            LiddlyDesktop-Offline.dmg
-            LiddlyDesktop-Online.app
-            LiddlyDesktop-Online.dmg
+            LiddlyDesktop.app
+            LiddlyDesktop.dmg

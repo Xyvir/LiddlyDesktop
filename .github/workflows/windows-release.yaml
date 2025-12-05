@@ -41,39 +41,17 @@ jobs:
             Write-Host "Icon file 'src/app-icon.png' not found, skipping icon generation."
           }
 
-      - name: Build Offline Executable
+      - name: Build Executable
         run: npm run tauri build
 
-      - name: Rename Offline Artifact
+      - name: Rename Artifact
         run: |
           $exe = Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select-Object -First 1
           if ($exe) {
-            Move-Item $exe.FullName -Destination "LiddlyDesktop-Offline.exe"
-            Write-Host "Created LiddlyDesktop-Offline.exe"
+            Move-Item $exe.FullName -Destination "LiddlyDesktop.exe"
+            Write-Host "Created LiddlyDesktop.exe"
           } else {
             Write-Error "Build failed: No .exe found in release folder."
-          }
-
-      - name: Switch Config to Online Mode
-        run: |
-          $configPath = "src-tauri/tauri.conf.json"
-          $json = Get-Content $configPath -Raw | ConvertFrom-Json
-          
-          if ($json.tauri -and $json.tauri.windows) {
-             $json.tauri.windows[0].url = "https://lithic.uk"
-          }
-          
-          $json | ConvertTo-Json -Depth 10 | Set-Content $configPath
-
-      - name: Build Online Executable
-        run: npm run tauri build
-
-      - name: Rename Online Artifact
-        run: |
-          $exe = Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select-Object -First 1
-          if ($exe) {
-            Move-Item $exe.FullName -Destination "LiddlyDesktop-Online.exe"
-             Write-Host "Created LiddlyDesktop-Online.exe"
           }
 
       - name: Upload Artifacts
@@ -81,8 +59,7 @@ jobs:
         with:
           name: windows-build
           path: |
-            LiddlyDesktop-Offline.exe
-            LiddlyDesktop-Online.exe
+            LiddlyDesktop.exe
 
   release:
     needs: build
@@ -105,5 +82,4 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            LiddlyDesktop-Offline.exe
-            LiddlyDesktop-Online.exe
+            LiddlyDesktop.exe
