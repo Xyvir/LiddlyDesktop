@@ -1,0 +1,76 @@
+name: Mobile Manual Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Setup Java and Android SDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+      - run: export ANDROID_HOME="$ANDROID_SDK_ROOT"
+      - run: export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools"
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Init Tauri for Android
+        run: npm run tauri android init
+
+      - name: Build Android APK
+        run: npm run tauri android build
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: Lithic-Android
+          path: src-tauri/target/release/apk/app-release.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Init Tauri for iOS
+        run: npm run tauri ios init
+
+      - name: Build iOS App
+        run: npm run tauri ios build
+      
+      - name: Upload iOS App
+        uses: actions/upload-artifact@v3
+        with:
+          name: Lithic-iOS-unsigned
+          path: src-tauri/target/aarch64-apple-ios/release/bundle/ios/*.app

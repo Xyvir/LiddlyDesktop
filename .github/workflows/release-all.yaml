@@ -1,0 +1,222 @@
+name: Build and Release All
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Dependencies
+        run: npm install
+      - name: Generate Icons
+        run: |
+          if (Test-Path "src/app-icon.png") {
+            npm run tauri icon src/app-icon.png
+          } else {
+            Write-Host "Icon file 'src/app-icon.png' not found, skipping icon generation."
+          }
+      - name: Build Offline Executable
+        run: npm run tauri build
+      - name: Rename Offline Artifact
+        run: Move-Item (Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select -First 1).FullName -Destination "LiddlyDesktop-Offline.exe"
+      - name: Switch Config to Online Mode
+        run: |
+          $configPath = "src-tauri/tauri.conf.json"
+          $json = Get-Content $configPath -Raw | ConvertFrom-Json
+          if ($json.tauri -and $json.tauri.windows) {
+             $json.tauri.windows[0].url = "https://lithic.uk"
+          }
+          $json | ConvertTo-Json -Depth 10 | Set-Content $configPath
+      - name: Build Online Executable
+        run: npm run tauri build
+      - name: Rename Online Artifact
+        run: Move-Item (Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select -First 1).FullName -Destination "LiddlyDesktop-Online.exe"
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-build
+          path: |
+            LiddlyDesktop-Offline.exe
+            LiddlyDesktop-Online.exe
+
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Linux Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.0-dev libgtk-3-dev libappindicator3-dev librsvg2-dev
+      - name: Install Dependencies
+        run: npm install
+      - name: Generate Icons
+        run: |
+          if [ -f "src/app-icon.png" ]; then
+            npm run tauri icon src/app-icon.png
+          else
+            echo "Icon file 'src/app-icon.png' not found, skipping icon generation."
+          fi
+      - name: Build Offline Executable
+        run: npm run tauri build
+      - name: Rename Offline Artifact
+        run: find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop-Offline.AppImage \;
+      - name: Switch Config to Online Mode
+        run: |
+          config_path="src-tauri/tauri.conf.json"
+          tmp_config=$(mktemp)
+          jq '.tauri.windows[0].url = "https://lithic.uk"' "$config_path" > "$tmp_config" && mv "$tmp_config" "$config_path"
+      - name: Build Online Executable
+        run: npm run tauri build
+      - name: Rename Online Artifact
+        run: find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop-Online.AppImage \;
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: linux-build
+          path: |
+            LiddlyDesktop-Offline.AppImage
+            LiddlyDesktop-Online.AppImage
+
+  build-mac:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Install Dependencies
+        run: npm install
+      - name: Generate Icons
+        run: |
+          if [ -f "src/app-icon.png" ]; then
+            npm run tauri icon src/app-icon.png
+          else
+            echo "Icon file 'src/app-icon.png' not found, skipping icon generation."
+          fi
+      - name: Build Offline Executable
+        run: npm run tauri build -- --bundles "app,dmg"
+      - name: Rename Offline Artifact
+        run: |
+          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Offline.app
+          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Offline.dmg
+      - name: Switch Config to Online Mode
+        run: |
+          config_path="src-tauri/tauri.conf.json"
+          tmp_config=$(mktemp)
+          jq '.tauri.windows[0].url = "https://lithic.uk"' "$config_path" > "$tmp_config" && mv "$tmp_config" "$config_path"
+      - name: Build Online Executable
+        run: npm run tauri build -- --bundles "app,dmg"
+      - name: Rename Online Artifact
+        run: |
+          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Online.app
+          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Online.dmg
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-build
+          path: |
+            LiddlyDesktop-Offline.app
+            LiddlyDesktop-Offline.dmg
+            LiddlyDesktop-Online.app
+            LiddlyDesktop-Online.dmg
+
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Setup Java and Android SDK
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+      - run: export ANDROID_HOME="$ANDROID_SDK_ROOT"
+      - run: export PATH="$PATH:$ANDROID_HOME/tools:$ANDROID_HOME/tools/bin:$ANDROID_HOME/platform-tools"
+      - name: Install Dependencies
+        run: npm install
+      - name: Init Tauri for Android
+        run: npm run tauri android init
+      - name: Build Android APK
+        run: npm run tauri android build
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v3
+        with:
+          name: LiddlyDesktop-Android
+          path: src-tauri/target/release/apk/app-release.apk
+
+  build-ios:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-ios
+      - name: Install Dependencies
+        run: npm install
+      - name: Init Tauri for iOS
+        run: npm run tauri ios init
+      - name: Build iOS App
+        run: npm run tauri ios build
+      - name: Upload iOS App
+        uses: actions/upload-artifact@v3
+        with:
+          name: LiddlyDesktop-iOS-unsigned
+          path: src-tauri/target/aarch64-apple-ios/release/bundle/ios/*.app
+
+  release-all:
+    needs: [build-windows, build-linux, build-mac, build-android, build-ios]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download All Artifacts
+        uses: actions/download-artifact@v3
+      - name: Generate Date-Based Tag
+        id: tag
+        run: echo "date=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+      - name: Create Unified Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.date }}-all
+          name: Release ${{ steps.tag.outputs.date }} (All Platforms)
+          draft: false
+          prerelease: false
+          files: |
+            windows-build/*
+            linux-build/*
+            macos-build/*
+            LiddlyDesktop-Android/*
+            LiddlyDesktop-iOS-unsigned/*

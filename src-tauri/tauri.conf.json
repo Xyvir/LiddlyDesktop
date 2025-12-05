@@ -6,7 +6,7 @@
     "distDir": "../src"
   },
   "package": {
-    "productName": "Lithic",
+    "productName": "LiddlyDesktop",
     "version": "0.1.0"
   },
   "tauri": {
@@ -16,7 +16,7 @@
     "bundle": {
       "active": true,
       "targets": "all",
-      "identifier": "com.lithic.app",
+      "identifier": "com.liddlydesktop.app",
       "icon": [
         "icons/32x32.png",
         "icons/128x128.png",
@@ -30,11 +30,11 @@
     },
     "windows": [
       {
-        "url": "launcher.html",
+        "url": "LiddlyDesktop.html",
         "fullscreen": false,
         "height": 600,
         "resizable": true,
-        "title": "Lithic",
+        "title": "LiddlyDesktop",
         "width": 800
       }
     ]

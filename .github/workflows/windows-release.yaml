@@ -7,9 +7,8 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build:
     runs-on: windows-latest
-
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -25,7 +24,6 @@ jobs:
       - name: Install Dependencies
         run: npm install
 
-      # --- DEBUG STEP ---
       - name: Debug - List Files & Tauri Info
         run: |
           Write-Host "--- CURRENT DIRECTORY ---"
@@ -50,8 +48,8 @@ jobs:
         run: |
           $exe = Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select-Object -First 1
           if ($exe) {
-            Move-Item $exe.FullName -Destination "Lithic-Offline.exe"
-            Write-Host "Created Lithic-Offline.exe"
+            Move-Item $exe.FullName -Destination "LiddlyDesktop-Offline.exe"
+            Write-Host "Created LiddlyDesktop-Offline.exe"
           } else {
             Write-Error "Build failed: No .exe found in release folder."
           }
@@ -61,7 +59,6 @@ jobs:
           $configPath = "src-tauri/tauri.conf.json"
           $json = Get-Content $configPath -Raw | ConvertFrom-Json
           
-          # Change entry point to website
           if ($json.tauri -and $json.tauri.windows) {
              $json.tauri.windows[0].url = "https://lithic.uk"
           }
@@ -75,21 +72,38 @@ jobs:
         run: |
           $exe = Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select-Object -First 1
           if ($exe) {
-            Move-Item $exe.FullName -Destination "Lithic-Online.exe"
-             Write-Host "Created Lithic-Online.exe"
+            Move-Item $exe.FullName -Destination "LiddlyDesktop-Online.exe"
+             Write-Host "Created LiddlyDesktop-Online.exe"
           }
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-build
+          path: |
+            LiddlyDesktop-Offline.exe
+            LiddlyDesktop-Online.exe
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: windows-build
 
       - name: Generate Date-Based Tag
         id: tag
-        run: echo "date=v$(Get-Date -Format 'yyyy.MM.dd-HHmm')" >> $env:GITHUB_OUTPUT
+        run: echo "date=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ steps.tag.outputs.date }}
-          name: Release ${{ steps.tag.outputs.date }}
+          tag_name: ${{ steps.tag.outputs.date }}-windows
+          name: Release ${{ steps.tag.outputs.date }} (Windows)
           draft: false
           prerelease: false
           files: |
-            Lithic-Offline.exe
-            Lithic-Online.exe
+            LiddlyDesktop-Offline.exe
+            LiddlyDesktop-Online.exe

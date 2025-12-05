@@ -1,0 +1,93 @@
+name: macOS Manual Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Generate Icons
+        run: |
+          if [ -f "src/app-icon.png" ]; then
+            npm run tauri icon src/app-icon.png
+          else
+            echo "Icon file 'src/app-icon.png' not found, skipping icon generation."
+          fi
+
+      - name: Build Offline Executable
+        run: npm run tauri build -- --bundles "app,dmg"
+
+      - name: Rename Offline Artifact
+        run: |
+          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Offline.app
+          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Offline.dmg
+          echo "Created LiddlyDesktop-Offline.app and LiddlyDesktop-Offline.dmg"
+
+      - name: Switch Config to Online Mode
+        run: |
+          config_path="src-tauri/tauri.conf.json"
+          tmp_config=$(mktemp)
+          jq '.tauri.windows[0].url = "https://lithic.uk"' "$config_path" > "$tmp_config" && mv "$tmp_config" "$config_path"
+          
+      - name: Build Online Executable
+        run: npm run tauri build -- --bundles "app,dmg"
+
+      - name: Rename Online Artifact
+        run: |
+          mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Online.app
+          mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Online.dmg
+          echo "Created LiddlyDesktop-Online.app and LiddlyDesktop-Online.dmg"
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: macos-build
+          path: |
+            LiddlyDesktop-Offline.app
+            LiddlyDesktop-Offline.dmg
+            LiddlyDesktop-Online.app
+            LiddlyDesktop-Online.dmg
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: macos-build
+
+      - name: Generate Date-Based Tag
+        id: tag
+        run: echo "date=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.tag.outputs.date }}-macos
+          name: Release ${{ steps.tag.outputs.date }} (macOS)
+          draft: false
+          prerelease: false
+          files: |
+            LiddlyDesktop-Offline.app
+            LiddlyDesktop-Offline.dmg
+            LiddlyDesktop-Online.app
+            LiddlyDesktop-Online.dmg
