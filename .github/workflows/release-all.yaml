@@ -44,7 +44,7 @@ jobs:
       - name: Rename Online Artifact
         run: Move-Item (Get-ChildItem -Path "src-tauri/target/release/*.exe" | Select -First 1).FullName -Destination "LiddlyDesktop-Online.exe"
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: windows-build
           path: |
@@ -89,7 +89,7 @@ jobs:
       - name: Rename Online Artifact
         run: find src-tauri/target/release -name "*.AppImage" -exec mv {} LiddlyDesktop-Online.AppImage \;
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: linux-build
           path: |
@@ -134,7 +134,7 @@ jobs:
           mv src-tauri/target/release/bundle/macos/*.app LiddlyDesktop-Online.app
           mv src-tauri/target/release/bundle/dmg/*.dmg LiddlyDesktop-Online.dmg
       - name: Upload Artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: macos-build
           path: |
@@ -168,7 +168,7 @@ jobs:
       - name: Build Android APK
         run: npm run tauri android build
       - name: Upload Android APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: LiddlyDesktop-Android
           path: src-tauri/target/release/apk/app-release.apk
@@ -193,7 +193,7 @@ jobs:
       - name: Build iOS App
         run: npm run tauri ios build
       - name: Upload iOS App
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: LiddlyDesktop-iOS-unsigned
           path: src-tauri/target/aarch64-apple-ios/release/bundle/ios/*.app
@@ -203,7 +203,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Download All Artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4
       - name: Generate Date-Based Tag
         id: tag
         run: echo "date=v$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
